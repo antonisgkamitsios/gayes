@@ -111,7 +111,7 @@ func (mc *mailCategorizer) categorizeMail(path string) (float64, float64, error)
 
 	pDHam := 0.0
 	pDSpam := 0.0
-	dp := 0.0
+	pD := 0.0
 	pHam := math.Log(float64(mc.totalHamCount) / float64(mc.totalCount))
 	pSpam := math.Log(float64(mc.totalSpamCount) / float64(mc.totalCount))
 
@@ -121,19 +121,19 @@ func (mc *mailCategorizer) categorizeMail(path string) (float64, float64, error)
 		}
 		pDHam += math.Log(float64(mc.hamBow[word]) / float64(mc.totalHamCount))
 		pDSpam += math.Log(float64(mc.spamBow[word]) / float64(mc.totalSpamCount))
-		dp += math.Log(float64(mc.hamBow[word]+mc.spamBow[word]) / float64(mc.totalCount))
+		pD += math.Log(float64(mc.hamBow[word]+mc.spamBow[word]) / float64(mc.totalCount))
 	}
 
-	spam := pDSpam + pSpam - dp
-	ham := pDHam + pHam - dp
+	ham := pDHam + pHam - pD
+	spam := pDSpam + pSpam - pD
 
 	return ham, spam, nil
 }
 
-func (mc mailCategorizer) categorizeMails(mailType MailType) (int, int) {
+func (mc mailCategorizer) categorizeMails(mailType MailType) (int, int, error) {
 	hamCount := 0
 	spamCount := 0
-	filepath.WalkDir(fmt.Sprintf("./enron6/%v/", mailType), func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(fmt.Sprintf("./enron6/%v/", mailType), func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
 		}
@@ -150,8 +150,11 @@ func (mc mailCategorizer) categorizeMails(mailType MailType) (int, int) {
 		}
 		return nil
 	})
+	if err != nil {
+		return 0, 0, err
+	}
 
-	return hamCount, spamCount
+	return hamCount, spamCount, nil
 }
 
 func main() {
@@ -172,12 +175,20 @@ func main() {
 
 	mc := newMailCategorizer(hamBow, spamBow, totalHamCount, totalSpamCount)
 
-	hams, spams := mc.categorizeMails(Ham)
+	hams, spams, err := mc.categorizeMails(Ham)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Println("Categorized Ham:")
 	fmt.Printf("  Hams: %v\n", hams)
 	fmt.Printf("  Spams: %v\n", spams)
 
-	hams, spams = mc.categorizeMails(Spam)
+	hams, spams, err = mc.categorizeMails(Spam)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Println("Categorized Spam:")
 	fmt.Printf("  Hams: %v\n", hams)
 	fmt.Printf("  Spams: %v\n", spams)
